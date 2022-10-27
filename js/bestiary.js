@@ -624,7 +624,7 @@ class BestiaryPage extends ListPageMultiSource {
 					$btnScale: $btnScaleCr,
 					initialCr: lastCr,
 					cbRender: (targetCr) => {
-						if (targetCr === Parser.crToNumber(mon.cr)) this._renderStatblock(mon);
+						if (targetCr === Parser.crToNumber(mon.cr)) Hist.setSubhash(VeCt.HASH_SCALED, null);
 						else Hist.setSubhash(VeCt.HASH_SCALED, targetCr);
 					},
 				});
