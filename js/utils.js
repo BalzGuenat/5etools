@@ -2290,6 +2290,7 @@ UrlUtil.PG_SEARCH = "search.html";
 UrlUtil.URL_TO_HASH_GENERIC = (it) => UrlUtil.encodeForHash([it.name, it.source]);
 
 UrlUtil.URL_TO_HASH_BUILDER = {};
+// UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY] = (it) => `${UrlUtil.encodeForHash([it.name, it.source])}${it.targetCr ? `${HASH_PART_SEP}${VeCt.HASH_SCALED}${HASH_SUB_KV_SEP}${it.targetCr}` : ""}`;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_SPELLS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BACKGROUNDS] = UrlUtil.URL_TO_HASH_GENERIC;

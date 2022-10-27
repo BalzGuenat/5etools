@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use strict";
 
 class InitiativeTracker {
@@ -819,6 +820,26 @@ class InitiativeTracker {
 						});
 						doSort(cfg.sort);
 					}).appendTo($wrpBtnsRhs);
+				$(`<button class="btn btn-default btn-xs dm-init-lockable" title="Change CR" tabindex="-1"><span class="glyphicon glyphicon-signal"></span></button>`)
+					.click(async (evt) => {
+						console.debug("hi");
+						if (cfg.isLocked) return;
+						await pMakeRow({
+							nameOrMeta: {
+								...nameOrMeta,
+								displayName: `${nameOrMeta.name} (CR ${nameOrMeta.scaledToCr + 1})`,
+								scaledToCr: nameOrMeta.scaledToCr + 1,
+							},
+							init: evt.shiftKey ? "" : $iptScore.val(),
+							isActive: !evt.shiftKey && $wrpRow.hasClass("dm-init-row-active"),
+							source,
+							isRollHp: cfg.isRollHp,
+							statsCols: evt.shiftKey ? null : getStatColsState($wrpRow),
+							isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
+						});
+						doSort(cfg.sort);
+					})
+					.appendTo($wrpBtnsRhs);
 
 				$(`<input class="source hidden" value="${source}">`).appendTo($wrpLhs);
 
@@ -942,7 +963,17 @@ class InitiativeTracker {
 
 			if (isMon && (hpVals.curHp === "" || hpVals.maxHp === "" || init === "")) {
 				const doUpdate = async () => {
-					const m = await Renderer.hover.pCacheAndGet(UrlUtil.PG_BESTIARY, source, hash);
+					const {scaledToCr, scaledSpellSummonLevel, scaledClassSummonLevel} = nameOrMeta;
+					const baseMon = await Renderer.hover.pCacheAndGet(UrlUtil.PG_BESTIARY, source, hash, {isRequired: true});
+					// adapted from pHandleLinkMouseOver
+					let m = baseMon;
+					if (scaledToCr != null) {
+						m = await ScaleCreature.scale(baseMon, nameOrMeta.scaledToCr);
+					} else if (scaledSpellSummonLevel != null) {
+						m = await ScaleSpellSummonedCreature.scale(baseMon, scaledSpellSummonLevel);
+					} else if (scaledClassSummonLevel != null) {
+						m = await ScaleClassSummonedCreature.scale(baseMon, scaledClassSummonLevel);
+					}
 
 					// set or roll HP
 					if (!isRollHp && m.hp.average) {
@@ -968,7 +999,7 @@ class InitiativeTracker {
 					doUpdateHpColors();
 				};
 
-				const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY]({name: name, source: source});
+				const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY]({name: name, source: source, targetCr: nameOrMeta.scaledToCr });
 				await doUpdate();
 			}
 
