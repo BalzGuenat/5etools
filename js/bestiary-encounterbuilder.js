@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use strict";
 
 class EncounterBuilderUtils {
@@ -1135,7 +1136,10 @@ class EncounterBuilder extends ProxyBase {
 
 	getSublistButtonsMeta (sublistItem) {
 		const $btnAdd = $(`<button title="Add (SHIFT for 5)" class="btn btn-success btn-xs ecgen__btn_list"><span class="glyphicon glyphicon-plus"></span></button>`)
-			.click(evt => this._handleClick({evt, entity: sublistItem.data.entity, mode: "add"}));
+			.click(evt => {
+				console.log("here");
+				this._handleClick({evt, entity: sublistItem.data.entity, mode: "add"});
+			});
 
 		const $btnSub = $(`<button title="Subtract (SHIFT for 5)" class="btn btn-danger btn-xs ecgen__btn_list"><span class="glyphicon glyphicon-minus"></span></button>`)
 			.click(evt => this._handleClick({evt, entity: sublistItem.data.entity, mode: "subtract"}));

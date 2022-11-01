@@ -709,7 +709,29 @@ class InitiativeTracker {
 			}
 		}
 
+		/*
+		*
+		*
+		*
+		*
+		*
+		*
+		*
+		*
+		*/
 		async function pMakeRow (opts) {
+			const resolvedOpts = Object.assign({
+				nameOrMeta: "",
+				customName: "",
+				hp: "",
+				hpMax: "",
+				init: "",
+				conditions: [],
+				isRollInit: cfg.isRollInit,
+				isRollHp: false,
+				isVisible: !cfg.playerInitHideNewMonster,
+			}, opts || {});
+
 			let {
 				nameOrMeta,
 				customName,
@@ -723,17 +745,8 @@ class InitiativeTracker {
 				isRollHp,
 				statsCols,
 				isVisible,
-			} = Object.assign({
-				nameOrMeta: "",
-				customName: "",
-				hp: "",
-				hpMax: "",
-				init: "",
-				conditions: [],
-				isRollInit: cfg.isRollInit,
-				isRollHp: false,
-				isVisible: !cfg.playerInitHideNewMonster,
-			}, opts || {});
+				monsterNumber,
+			} = resolvedOpts;
 
 			const isMon = !!source;
 			if (nameOrMeta instanceof Object) {
@@ -749,6 +762,13 @@ class InitiativeTracker {
 
 			const $wrpRow = $(`<div class="dm-init-row ${isActive ? "dm-init-row-active" : ""} overflow-hidden"/>`);
 
+			const removeRow = () => {
+				if (cfg.isLocked) return;
+				if ($wrpRow.hasClass(`dm-init-row-active`) && $wrpEntries.find(`.dm-init-row`).length > 1) setNextActive();
+				$wrpRow.remove();
+				doUpdateExternalStates();
+			};
+
 			const $wrpLhs = $(`<div class="dm-init-row-lhs"/>`).appendTo($wrpRow);
 			const $iptName = $(`<input class="form-control input-sm name dm-init-name dm-init-lockable dm-init-row-input ${isMon ? "hidden" : ""}" placeholder="Name">`)
 				.disableSpellcheck()
@@ -758,11 +778,12 @@ class InitiativeTracker {
 				doSort(ALPHA);
 				doUpdateExternalStates();
 			});
+
 			if (isMon) {
 				const $rows = $wrpEntries.find(`.dm-init-row`);
 				const curMon = $rows.find(".init-wrp-creature").filter((i, e) => $(e).parent().find(`input.name`).val() === name && $(e).parent().find(`input.source`).val() === source);
-				let monNum = null;
-				if (curMon.length) {
+				let monNum = monsterNumber;
+				if (!monsterNumber && curMon.length) {
 					const $dispsNumber = curMon.map((i, e) => $(e).find(`span[data-number]`).data("number"));
 					if (curMon.length === 1 && !$dispsNumber.length) {
 						const r = $(curMon.get(0));
@@ -774,8 +795,9 @@ class InitiativeTracker {
 				}
 
 				const getLink = () => {
-					if (typeof nameOrMeta === "string" || (nameOrMeta.scaledToCr == null && nameOrMeta.scaledToSummonSpellLevel == null && nameOrMeta.scaledToSummonClassLevel == null)) return Renderer.get().render(`{@creature ${name}|${source}}`);
-					else {
+					if (typeof nameOrMeta === "string" || (nameOrMeta.scaledToCr == null && nameOrMeta.scaledToSummonSpellLevel == null && nameOrMeta.scaledToSummonClassLevel == null)) {
+						return Renderer.get().render(`{@creature ${name}|${source}}`);
+					} else {
 						const parts = [name, source, displayName, nameOrMeta.scaledToCr != null ? `${VeCt.HASH_SCALED}=${Parser.numberToCr(nameOrMeta.scaledToCr)}` : nameOrMeta.scaledToSummonSpellLevel != null ? `${VeCt.HASH_SCALED_SPELL_SUMMON}=${nameOrMeta.scaledToSummonSpellLevel}` : nameOrMeta.scaledToSummonClassLevel != null ? `${VeCt.HASH_SCALED_CLASS_SUMMON}=${nameOrMeta.scaledToSummonClassLevel}` : null];
 						return Renderer.get().render(`{@creature ${parts.join("|")}}`);
 					}
@@ -820,24 +842,71 @@ class InitiativeTracker {
 						});
 						doSort(cfg.sort);
 					}).appendTo($wrpBtnsRhs);
-				$(`<button class="btn btn-default btn-xs dm-init-lockable" title="Change CR" tabindex="-1"><span class="glyphicon glyphicon-signal"></span></button>`)
+				const $btnScaleCr = $(`<button class="btn btn-default btn-xs dm-init-lockable" title="Change CR" tabindex="-1"><span class="glyphicon glyphicon-signal"></span></button>`)
 					.click(async (evt) => {
-						console.debug("hi");
 						if (cfg.isLocked) return;
-						await pMakeRow({
-							nameOrMeta: {
-								...nameOrMeta,
-								displayName: `${nameOrMeta.name} (CR ${nameOrMeta.scaledToCr + 1})`,
-								scaledToCr: nameOrMeta.scaledToCr + 1,
+
+						const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY]({name, source });
+						const baseMon = await Renderer.hover.pCacheAndGet(UrlUtil.PG_BESTIARY, source, hash, {isRequired: true});
+
+						// evt.stopPropagation();
+						const win = (evt.view || {}).window;
+						// const mon = this._dataList[Hist.lastLoadedId];
+						// const lastCr = this._lastRender.entity ? this._lastRender.entity.cr.cr || this._lastRender.entity.cr : mon.cr.cr || mon.cr;
+						Renderer.monster.getCrScaleTarget({
+							win,
+							$btnScale: $btnScaleCr,
+							initialCr: nameOrMeta.scaledToCr ? Parser.numberToCr(nameOrMeta.scaledToCr) : baseMon.cr,
+							isCompact: true,
+							$targetElement: $wrpRow,
+							cbRender: async (targetCr) => {
+								console.debug(targetCr);
+								if (targetCr === nameOrMeta.scaledToCr) return;
+								// const m = await ScaleCreature.scale(baseMon, targetCr);
+								// $iptHpMax.val(m.hp.average);
+
+								const newRowOpts = {
+									...resolvedOpts,
+									nameOrMeta: nameOrMeta instanceof Object ? {
+										...nameOrMeta,
+										displayName: `${nameOrMeta.name} (CR ${targetCr})`,
+										scaledToCr: targetCr,
+									} : {
+										name,
+										displayName,
+										scaledToCr: targetCr,
+									},
+									customName: $wrpRow.hasClass("dm-init-row-rename") ? $monName.find(`a`).text() : undefined,
+									init: "",
+									isActive: $wrpRow.hasClass("dm-init-row-active"),
+									isRollHp: cfg.isRollHp,
+									statsCols: null,
+									isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
+									monsterNumber: monNum,
+								};
+								removeRow();
+								await pMakeRow(newRowOpts);
+								doSort(cfg.sort);
+
+								// if (targetCr === Parser.crToNumber(mon.cr)) Hist.setSubhash(VeCt.HASH_SCALED, null);
+								// else Hist.setSubhash(VeCt.HASH_SCALED, targetCr);
 							},
-							init: evt.shiftKey ? "" : $iptScore.val(),
-							isActive: !evt.shiftKey && $wrpRow.hasClass("dm-init-row-active"),
-							source,
-							isRollHp: cfg.isRollHp,
-							statsCols: evt.shiftKey ? null : getStatColsState($wrpRow),
-							isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
 						});
-						doSort(cfg.sort);
+
+						// await pMakeRow({
+						// 	nameOrMeta: {
+						// 		...nameOrMeta,
+						// 		displayName: `${nameOrMeta.name} (CR ${nameOrMeta.scaledToCr + 1})`,
+						// 		scaledToCr: nameOrMeta.scaledToCr + 1,
+						// 	},
+						// 	init: evt.shiftKey ? "" : $iptScore.val(),
+						// 	isActive: !evt.shiftKey && $wrpRow.hasClass("dm-init-row-active"),
+						// 	source,
+						// 	isRollHp: cfg.isRollHp,
+						// 	statsCols: evt.shiftKey ? null : getStatColsState($wrpRow),
+						// 	isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
+						// });
+						// doSort(cfg.sort);
 					})
 					.appendTo($wrpBtnsRhs);
 
@@ -1023,15 +1092,9 @@ class InitiativeTracker {
 
 			InitiativeTracker.get$btnPlayerVisible(isVisible, doUpdateExternalStates, false, "dm-init-row-btn", "dm_init__btn_eye")
 				.appendTo($wrpRhs);
-
 			$(`<button class="btn btn-danger btn-xs dm-init-row-btn dm-init-lockable" title="Delete" tabindex="-1"><span class="glyphicon glyphicon-trash"/></button>`)
 				.appendTo($wrpRhs)
-				.on("click", () => {
-					if (cfg.isLocked) return;
-					if ($wrpRow.hasClass(`dm-init-row-active`) && $wrpEntries.find(`.dm-init-row`).length > 1) setNextActive();
-					$wrpRow.remove();
-					doUpdateExternalStates();
-				});
+				.on("click", removeRow);
 
 			populateRowStatCols($wrpRow, statsCols);
 			conditions.forEach(c => addCondition(c.name, c.color, c.turns));
@@ -1042,6 +1105,16 @@ class InitiativeTracker {
 			return $wrpRow;
 		}
 
+		/*
+		*
+		*
+		*
+		*
+		*
+		*
+		*
+		*
+		*/
 		const populateRowStatCols = ($row, statsCols) => {
 			const $mid = $row.find(`.dm-init-row-mid`);
 

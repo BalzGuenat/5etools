@@ -6071,8 +6071,10 @@ Renderer.monster = {
 			initialCr,
 			cbRender,
 			isCompact,
+			$targetElement,
 		},
 	) {
+		const $targetElem = $targetElement || $btnScale;
 		const evtName = "click.cr-scaler";
 
 		let slider;
@@ -6107,6 +6109,7 @@ Renderer.monster = {
 
 		$btnScale.off(evtName).on(evtName, (evt) => evt.stopPropagation());
 		$wrp.on(evtName, (evt) => evt.stopPropagation());
+		$targetElem.on(evtName, (evt) => evt.stopPropagation());
 		$body.off(evtName).on(evtName, cleanSliders);
 
 		comp._addHookBase("cur", () => {
@@ -6115,7 +6118,7 @@ Renderer.monster = {
 			cleanSliders();
 		});
 
-		$btnScale.after($wrp);
+		$targetElem.after($wrp);
 	},
 
 	getSelSummonSpellLevel (mon) {
