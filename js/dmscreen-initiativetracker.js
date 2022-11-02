@@ -875,6 +875,7 @@ class InitiativeTracker {
 									customName: $wrpRow.hasClass("dm-init-row-rename") ? $monName.find(`a`).text() : undefined,
 									init: "",
 									isActive: $wrpRow.hasClass("dm-init-row-active"),
+									isRollInit: cfg.isRollInit,
 									isRollHp: cfg.isRollHp,
 									statsCols: null,
 									isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
