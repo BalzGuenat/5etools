@@ -746,6 +746,7 @@ class InitiativeTracker {
 				statsCols,
 				isVisible,
 				monsterNumber,
+				insertion,
 			} = resolvedOpts;
 
 			const isMon = !!source;
@@ -753,7 +754,7 @@ class InitiativeTracker {
 				// unpack saved
 				nameOrMeta.name = nameOrMeta.name || nameOrMeta.n;
 				nameOrMeta.displayName = nameOrMeta.displayName || nameOrMeta.d;
-				nameOrMeta.scaledToCr = nameOrMeta.scaledToCr || (nameOrMeta.scr ? Number(nameOrMeta.scr) : null);
+				nameOrMeta.scaledToCr = typeof nameOrMeta.scaledToCr === "number" ? nameOrMeta.scaledToCr : (nameOrMeta.scr ? Number(nameOrMeta.scr) : null);
 				nameOrMeta.scaledToSummonSpellLevel = nameOrMeta.scaledToSummonSpellLevel || (nameOrMeta.ssp ? Number(nameOrMeta.ssp) : null);
 				nameOrMeta.scaledToSummonClassLevel = nameOrMeta.scaledToSummonClassLevel || (nameOrMeta.scl ? Number(nameOrMeta.scl) : null);
 			}
@@ -849,10 +850,7 @@ class InitiativeTracker {
 						const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY]({name, source });
 						const baseMon = await Renderer.hover.pCacheAndGet(UrlUtil.PG_BESTIARY, source, hash, {isRequired: true});
 
-						// evt.stopPropagation();
 						const win = (evt.view || {}).window;
-						// const mon = this._dataList[Hist.lastLoadedId];
-						// const lastCr = this._lastRender.entity ? this._lastRender.entity.cr.cr || this._lastRender.entity.cr : mon.cr.cr || mon.cr;
 						Renderer.monster.getCrScaleTarget({
 							win,
 							$btnScale: $btnScaleCr,
@@ -860,21 +858,19 @@ class InitiativeTracker {
 							isCompact: true,
 							$targetElement: $wrpRow,
 							cbRender: async (targetCr) => {
-								console.debug(targetCr);
 								if (targetCr === nameOrMeta.scaledToCr) return;
-								// const m = await ScaleCreature.scale(baseMon, targetCr);
-								// $iptHpMax.val(m.hp.average);
+								const isInitialCr = targetCr === Parser.crToNumber(baseMon.cr);
 
 								const newRowOpts = {
 									...resolvedOpts,
 									nameOrMeta: nameOrMeta instanceof Object ? {
 										...nameOrMeta,
-										displayName: `${nameOrMeta.name} (CR ${targetCr})`,
-										scaledToCr: targetCr,
+										displayName: isInitialCr ? nameOrMeta.name : `${nameOrMeta.name} (CR ${Parser.numberToCr(targetCr)})`,
+										scaledToCr: isInitialCr ? null : targetCr,
 									} : {
 										name,
 										displayName,
-										scaledToCr: targetCr,
+										scaledToCr: isInitialCr ? null : targetCr,
 									},
 									customName: $wrpRow.hasClass("dm-init-row-rename") ? $monName.find(`a`).text() : undefined,
 									init: "",
@@ -882,31 +878,16 @@ class InitiativeTracker {
 									isRollHp: cfg.isRollHp,
 									statsCols: null,
 									isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
-									monsterNumber: monNum,
+									monsterNumber: $wrpRow.find(`span[data-number]`).data("number"),
+									insertion: (row) => {
+										row.insertAfter($wrpRow);
+									},
 								};
-								removeRow();
 								await pMakeRow(newRowOpts);
+								removeRow();
 								doSort(cfg.sort);
-
-								// if (targetCr === Parser.crToNumber(mon.cr)) Hist.setSubhash(VeCt.HASH_SCALED, null);
-								// else Hist.setSubhash(VeCt.HASH_SCALED, targetCr);
 							},
 						});
-
-						// await pMakeRow({
-						// 	nameOrMeta: {
-						// 		...nameOrMeta,
-						// 		displayName: `${nameOrMeta.name} (CR ${nameOrMeta.scaledToCr + 1})`,
-						// 		scaledToCr: nameOrMeta.scaledToCr + 1,
-						// 	},
-						// 	init: evt.shiftKey ? "" : $iptScore.val(),
-						// 	isActive: !evt.shiftKey && $wrpRow.hasClass("dm-init-row-active"),
-						// 	source,
-						// 	isRollHp: cfg.isRollHp,
-						// 	statsCols: evt.shiftKey ? null : getStatColsState($wrpRow),
-						// 	isVisible: $wrpRow.find(`.dm_init__btn_eye`).hasClass("btn-primary"),
-						// });
-						// doSort(cfg.sort);
 					})
 					.appendTo($wrpBtnsRhs);
 
@@ -1098,7 +1079,8 @@ class InitiativeTracker {
 
 			populateRowStatCols($wrpRow, statsCols);
 			conditions.forEach(c => addCondition(c.name, c.color, c.turns));
-			$wrpRow.appendTo($wrpEntries);
+			if (insertion) insertion($wrpRow);
+			else $wrpRow.appendTo($wrpEntries);
 
 			doUpdateExternalStates();
 
